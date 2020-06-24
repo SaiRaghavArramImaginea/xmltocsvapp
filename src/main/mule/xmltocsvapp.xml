@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="57f5d175-e5d9-406b-8926-1cf60915c824" >
+		<http:listener-connection host="0.0.0.0" port="8085" />
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="5bc573ef-a657-48a2-b707-498b222508ef" >
+		<file:connection workingDir="/home/sairaghav/AnypointStudio/studio-workspace/xmltocsvapp" />
+	</file:config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="9a84a1b8-12b8-4737-bff3-a8099bd370b5" >
+		<file:connection workingDir="/home/sairaghav/AnypointStudio/studio-workspace/xmltocsvapp" />
+	</file:config>
+	<flow name="xmltocsvappFlow" doc:id="d9876275-503d-4c9f-ac2d-7f25e0eb5113" >
+		<http:listener doc:name="Listener" doc:id="274e2e9f-4c3d-432b-9afb-54faf8fe7494" config-ref="HTTP_Listener_config" path="/xmltocsv"/>
+		<file:read doc:name="Read" doc:id="a2ce1326-cea3-4d0a-9761-e235ba24a348" config-ref="File_Config" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/input/items.xml"/>
+		<logger level="INFO" doc:name="Logger" doc:id="8823af6d-63a5-4002-95a2-9a97cf95e27f" message="#[payload]"/>
+		<ee:transform doc:name="Filter items and convert to json" doc:id="aad039cf-2947-493b-ac2c-a5b0644f08a9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[
+%dw 2.0
+ output application/json 
+  var validItems = (payload.Items.*Item map(item, index) -> 
+  {
+  vendorId: item.VendorID as Number default 0,
+  itemCode: item.ItemCode,
+  itemName: item.ItemName,
+  itemDescription: item.ItemDescription,
+  itemPrice: item.Price,
+  exportValue: item.ExportValue
+ } 
+) filter ($.vendorId > 0)
+
+var invalidItems = (payload.Items.*Item map(item, index) -> 
+{
+  vendorId: item.VendorID as Number default 0,
+  itemCode: item.ItemCode,
+  itemName: item.ItemName,
+  itemDescription: item.ItemDescription,
+  itemPrice: item.Price,
+  exportValue: item.ExportValue
+ } 
+) filter ($.vendorId == 0)
+---
+{
+	validItems: validItems,
+	invalidItems: invalidItems
+}]]></ee:set-payload>
+				<ee:set-attributes ><![CDATA[%dw 2.0
+ output application/json 
+  var validItems = (payload.Items.*Item map(item, index) -> 
+ {
+  vendorId: item.VendorID as Number default 0,
+  itemCode: item.ItemCode,
+  itemName: item.ItemName,
+  itemDescription: item.ItemDescription,
+  itemPrice: item.Price,
+  exportValue: item.ExportValue
+ } 
+) filter ($.vendorId > 0)
+
+var invalidItems = (payload.Items.*Item map(item, index) -> 
+ {
+  vendorId: item.VendorID as Number default 0,
+  itemCode: item.ItemCode,
+  itemName: item.ItemName,
+  itemDescription: item.ItemDescription,
+  itemPrice: item.Price,
+  exportValue: item.ExportValue
+ } 
+) filter ($.vendorId == 0)
+---
+{
+	validItems: validItems,
+	invalidItems: invalidItems
+}
+]]></ee:set-attributes>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="filtered_data" ><![CDATA[%dw 2.0
+ output application/json 
+  var validItems = (payload.Items.*Item map(item, index) -> 
+ {
+  vendorId: item.VendorID as Number default 0,
+  itemCode: item.ItemCode,
+  itemName: item.ItemName,
+  itemDescription: item.ItemDescription,
+  itemPrice: item.Price,
+  exportValue: item.ExportValue
+ } 
+) filter ($.vendorId > 0)
+
+var invalidItems = (payload.Items.*Item map(item, index) -> 
+ {
+  vendorId: item.VendorID as Number default 0,
+  itemCode: item.ItemCode,
+  itemName: item.ItemName,
+  itemDescription: item.ItemDescription,
+  itemPrice: item.Price,
+  exportValue: item.ExportValue
+ } 
+) filter ($.vendorId == 0)
+---
+{
+	validItems: validItems,
+	invalidItems: invalidItems
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Valid items Message" doc:id="779d6cbf-c35f-4a0f-909e-5c7d79c7bcda">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/csv quoteValues=true, separator="|~", header=true, escape="\""
+ ---
+
+ vars.filtered_data.validItems map((item, indexOfPerson) -> {
+  vendorId: item.vendorId as Number default 0,
+  itemCode: item.itemCode,
+  itemName: item.itemName,
+  itemDescription: item.itemDescription,
+  itemPrice: item.itemPrice,
+  exportValue: item.exportValue
+ })]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Valid Items Write" doc:id="5d4e0651-5c80-45e9-858e-fcb8e7d40658" config-ref="File_Config1" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/output/valid.csv">
+		</file:write>
+		<ee:transform doc:name="invalid items Message" doc:id="88dab68b-3d90-4719-865c-afe468a254f0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv quoteValues=true, separator="|~", header=true, escape="\""
+ ---
+
+ vars.filtered_data.invalidItems map((item, indexOfPerson) -> {
+  vendorId: item.vendorId as Number default 0,
+  itemCode: item.itemCode,
+  itemName: item.itemName,
+  itemDescription: item.itemDescription,
+  itemPrice: item.itemPrice,
+  exportValue: item.exportValue
+ })]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="invalid items write" doc:id="498527e8-3c61-417a-88f0-9faf93781646" config-ref="File_Config1" path="/home/sairaghav/AnypointStudio/studio-workspace/mule/output/invalid.csv" />
+	</flow>
+</mule>
